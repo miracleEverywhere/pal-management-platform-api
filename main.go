@@ -15,6 +15,8 @@ func main() {
 	}
 
 	gin.DefaultWriter = utils.InitAccessLogger()
+	gin.SetMode(gin.ReleaseMode)
+	gin.DisableConsoleColor()
 
 	r := gin.Default()
 

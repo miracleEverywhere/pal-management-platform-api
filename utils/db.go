@@ -48,16 +48,6 @@ func CheckConfig() {
 	Logger.Info("数据库初始化完成")
 }
 
-func (config Config) Init() {
-	config.JwtSecret = GenerateJWTSecret()
-	config.Registered = false
-	err := WriteConfig(config)
-	if err != nil {
-		Logger.Error("写入数据库失败", "err", err)
-		panic("数据库初始化失败")
-	}
-}
-
 func ReadConfig() (Config, error) {
 	if DBCache.JwtSecret != "" {
 		return DBCache, nil
@@ -114,4 +104,24 @@ func WriteConfig(config Config) error {
 	DBCache = config
 
 	return nil
+}
+
+func (config Config) Init() {
+	config.JwtSecret = GenerateJWTSecret()
+	config.Registered = false
+	err := WriteConfig(config)
+	if err != nil {
+		Logger.Error("写入数据库失败", "err", err)
+		panic("数据库初始化失败")
+	}
+}
+
+func (config Config) GetUserWithUsername(username string) User {
+	for _, user := range config.Users {
+		if user.Username == username {
+			return user
+		}
+	}
+
+	return User{}
 }
