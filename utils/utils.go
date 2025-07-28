@@ -2,14 +2,14 @@ package utils
 
 import (
 	"flag"
-	"fmt"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/mem"
+	"math/rand"
 	"os"
-	"pal-management-platform-api/store"
 	"runtime"
-	"strings"
+	"time"
 )
 
 func BindFlags() {
@@ -19,28 +19,8 @@ func BindFlags() {
 	flag.Parse()
 }
 
-// EnsureDirExists 检查目录是否存在，如果不存在则创建
-func EnsureDirExists(dirPath string) error {
-	if strings.HasPrefix(dirPath, "~") {
-		dirPath = strings.Replace(dirPath, "~", HomeDir, 1)
-	}
-	// 检查目录是否存在
-	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-		// 目录不存在，创建目录
-		err := os.MkdirAll(dirPath, os.ModePerm)
-		if err != nil {
-			return fmt.Errorf("无法创建目录: %w", err)
-		}
-	} else if err != nil {
-		// 其他错误
-		return fmt.Errorf("检查目录时出错: %w", err)
-	}
-
-	return nil
-}
-
 func SetGlobalVariables() {
-	config, err := store.ReadConfig()
+	config, err := ReadConfig()
 	if err != nil {
 		Logger.Error("启动检查出现致命错误：获取数据库失败", "err", err)
 		panic(err)
@@ -107,11 +87,36 @@ func GetOSInfo() (*OSInfo, error) {
 }
 
 func CheckDirs() {
-	var err error
-	// dst config
-	err = EnsureDirExists(LogsPath)
-	if err != nil {
-		Logger.Error("目录检查未通过，创建目录失败", "path", LogsPath)
-		panic("目录检查未通过")
+
+}
+
+func GenerateJWT(user User, jwtSecret []byte, expiration int) (string, error) {
+	// 定义一个自定义的声明结构
+
+	claims := Claims{
+		Username: user.Username,
+		Nickname: user.Nickname,
+		Role:     user.Role,
+		Avatar:   user.Avatar,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: time.Now().Add(time.Duration(expiration) * time.Hour).Unix(), // 过期时间
+		},
 	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(jwtSecret)
+}
+
+func GenerateJWTSecret() string {
+	source := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(source)
+	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	length := 26
+	randomString := make([]byte, length)
+	for i := range randomString {
+		// 从字符集中随机选择一个字符
+		randomString[i] = charset[r.Intn(len(charset))]
+	}
+
+	return string(randomString)
 }

@@ -1,3 +1,3 @@
-package store
+package utils
 
 var DBCache Config

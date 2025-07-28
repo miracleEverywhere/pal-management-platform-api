@@ -1,49 +1,51 @@
-package store
+package utils
 
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"os"
-	"pal-management-platform-api/utils"
-	"time"
+	"sync"
 )
 
-func GenerateJWTSecret() string {
-	source := rand.NewSource(time.Now().UnixNano())
-	r := rand.New(source)
-	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	length := 26
-	randomString := make([]byte, length)
-	for i := range randomString {
-		// 从字符集中随机选择一个字符
-		randomString[i] = charset[r.Intn(len(charset))]
-	}
+var ConfigMutex sync.Mutex
 
-	return string(randomString)
+type User struct {
+	Username string   `json:"username"`
+	Nickname string   `json:"nickname"`
+	Role     string   `json:"role"`
+	Avatar   string   `json:"avatar"`
+	Password string   `json:"password"`
+	Disabled bool     `json:"disabled"`
+	Clusters []string `json:"clusters"`
+}
+
+type Config struct {
+	Users      []User `json:"users"`
+	JwtSecret  string `json:"jwtSecret"`
+	Registered bool   `json:"registered"`
 }
 
 func CheckConfig() {
-	_ = utils.EnsureDirExists(utils.ConfDir)
-	_, err := os.Stat(utils.ConfDir + "/DstMP.sdb")
+	_ = EnsureDirExists(ConfDir)
+	_, err := os.Stat(ConfDir + "/DstMP.sdb")
 	if !os.IsNotExist(err) {
-		utils.Logger.Info("执行数据库检查中，发现数据库文件")
+		Logger.Info("执行数据库检查中，发现数据库文件")
 		config, err := ReadConfig()
 		if err != nil {
-			utils.Logger.Error("执行数据库检查中，打开数据库文件失败", "err", err)
+			Logger.Error("执行数据库检查中，打开数据库文件失败", "err", err)
 			panic("数据库检查未通过")
 			return
 		}
 		DBCache = config
-		utils.Logger.Info("数据库检查完成")
+		Logger.Info("数据库检查完成")
 		return
 	}
 
-	utils.Logger.Info("执行数据库检查中，初始化数据库")
+	Logger.Info("执行数据库检查中，初始化数据库")
 	var config Config
 	config.Init()
 
-	utils.Logger.Info("数据库初始化完成")
+	Logger.Info("数据库初始化完成")
 }
 
 func (config Config) Init() {
@@ -51,7 +53,7 @@ func (config Config) Init() {
 	config.Registered = false
 	err := WriteConfig(config)
 	if err != nil {
-		utils.Logger.Error("写入数据库失败", "err", err)
+		Logger.Error("写入数据库失败", "err", err)
 		panic("数据库初始化失败")
 	}
 }
@@ -64,7 +66,7 @@ func ReadConfig() (Config, error) {
 	ConfigMutex.Lock()
 	defer ConfigMutex.Unlock()
 
-	content, err := os.ReadFile(utils.ConfDir + "/DstMP.sdb")
+	content, err := os.ReadFile(ConfDir + "/DstMP.sdb")
 	if err != nil {
 		return Config{}, err
 	}
@@ -88,14 +90,14 @@ func WriteConfig(config Config) error {
 	if err != nil {
 		return fmt.Errorf("序列化配置失败: %w", err)
 	}
-	file, err := os.OpenFile(utils.ConfDir+"/DstMP.sdb", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	file, err := os.OpenFile(ConfDir+"/DstMP.sdb", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return fmt.Errorf("打开文件失败: %w", err)
 	}
 	defer func(file *os.File) {
 		err := file.Close()
 		if err != nil {
-			utils.Logger.Error("关闭文件失败", "err", err)
+			Logger.Error("关闭文件失败", "err", err)
 		}
 	}(file)
 

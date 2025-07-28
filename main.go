@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"pal-management-platform-api/store"
+	"pal-management-platform-api/app/auth"
 	"pal-management-platform-api/utils"
 	"runtime"
 )
@@ -14,13 +14,12 @@ func main() {
 		return
 	}
 
-	// 将 Gin 的默认输出重定向到文件
 	gin.DefaultWriter = utils.InitAccessLogger()
 
 	r := gin.Default()
-	r.GET("/", func(c *gin.Context) {
-		c.String(200, "Hello, World!")
-	})
+
+	r = auth.RouteAuth(r)
+
 	err := r.Run(fmt.Sprintf(":%d", utils.BindPort))
 	if err != nil {
 		utils.Logger.Error("启动服务器失败", "err", err)
@@ -32,7 +31,7 @@ func init() {
 	// 绑定flag
 	utils.BindFlags()
 	// 数据库检查
-	store.CheckConfig()
+	utils.CheckConfig()
 	// 设置全局变量
 	utils.SetGlobalVariables()
 	// 检查目录
