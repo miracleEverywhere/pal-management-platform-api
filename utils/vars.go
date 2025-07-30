@@ -3,7 +3,6 @@ package utils
 import "github.com/dgrijalva/jwt-go"
 
 var (
-	ConfDir     string
 	BindPort    int
 	VersionShow bool
 )

@@ -8,9 +8,6 @@
 # pmp暴露端口，即网页打开时所用的端口
 PORT=80
 
-# 数据库文件所在目录，例如：./database
-CONFIG_DIR="./config"
-
 # 虚拟内存大小，例如 1G 4G等
 SWAPSIZE=2G
 # --------------- ↑可修改↑ --------------- #
@@ -165,10 +162,10 @@ function check_pmp() {
 function start_pmp() {
     check_glibc
     if [ -e "$ExeFile" ]; then
-        nohup "$ExeFile" -l ${PORT} -s ${CONFIG_DIR} >pmp.log 2>&1 &
+        nohup "$ExeFile" -l ${PORT} >pmp.log 2>&1 &
     else
         install_pmp
-        nohup "$ExeFile" -l ${PORT} -s ${CONFIG_DIR} >pmp.log 2>&1 &
+        nohup "$ExeFile" -l ${PORT} >pmp.log 2>&1 &
     fi
 }
 
