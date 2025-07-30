@@ -1,14 +1,19 @@
 package utils
 
 import (
+	"bufio"
 	"flag"
+	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/mem"
+	"math"
 	"math/rand"
 	"os"
 	"runtime"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -118,4 +123,108 @@ func GenerateJWTSecret() string {
 	}
 
 	return string(randomString)
+}
+
+func ReadContainCpuUsage() (uint64, error) {
+	file, err := os.Open("/sys/fs/cgroup/cpu.stat")
+	if err != nil {
+		return 0, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "usage_usec") {
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				return strconv.ParseUint(parts[1], 10, 64)
+			}
+		}
+	}
+
+	return 0, fmt.Errorf("未找到 usage_usec 数据")
+}
+
+func CpuUsage() (float64, error) {
+	// 获取 CPU 使用率
+	if InContainer {
+		const samplingInterval = 100 * time.Millisecond // 0.1秒
+		// 第一次采样
+		usage1, err := ReadContainCpuUsage()
+		if err != nil {
+			return 0, err
+		}
+		// 等待 0.1 秒
+		time.Sleep(samplingInterval)
+		// 第二次采样
+		usage2, err := ReadContainCpuUsage()
+		if err != nil {
+			return 0, err
+		}
+		// 计算 CPU 使用率百分比
+		delta := usage2 - usage1
+		intervalMicroseconds := float64(samplingInterval.Microseconds())
+		return float64(delta) / intervalMicroseconds * 100, nil
+	} else {
+		percent, err := cpu.Percent(0, false)
+		if err != nil {
+			return 0, fmt.Errorf("error getting CPU percent: %w", err)
+		}
+		return percent[0], nil
+	}
+}
+
+func ReadContainUintFromFile(path string) (uint64, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, err
+	}
+
+	valueStr := strings.TrimSpace(string(data))
+	if valueStr == "max" {
+		return math.MaxUint64, nil
+	}
+
+	return strconv.ParseUint(valueStr, 10, 64)
+}
+
+func MemoryUsage() (float64, error) {
+	// 获取内存信息
+	if InContainer {
+		// 读取内存限制
+		data, err := os.ReadFile("/sys/fs/cgroup/memory.max")
+		if err != nil {
+			return 0, err
+		}
+		valueStr := strings.TrimSpace(string(data))
+		if valueStr == "max" {
+			// 没有内存限制
+			vmStat, err := mem.VirtualMemory()
+			if err != nil {
+				return 0, fmt.Errorf("error getting virtual memory info: %w", err)
+			}
+			return vmStat.UsedPercent, nil
+		} else {
+			// 存在内存限制
+			// 读取当前内存使用量
+			memCurrent, err := ReadContainUintFromFile("/sys/fs/cgroup/memory.current")
+			if err != nil {
+				return 0, err
+			}
+			// 读取内存限制
+			memMax, err := ReadContainUintFromFile("/sys/fs/cgroup/memory.max")
+			if err != nil {
+				return 0, err
+			}
+			return float64(memCurrent) / float64(memMax) * 100, nil
+		}
+
+	} else {
+		vmStat, err := mem.VirtualMemory()
+		if err != nil {
+			return 0, fmt.Errorf("error getting virtual memory info: %w", err)
+		}
+		return vmStat.UsedPercent, nil
+	}
 }
