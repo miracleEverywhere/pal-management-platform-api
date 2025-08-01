@@ -116,12 +116,12 @@ func (config Config) Init() {
 	}
 }
 
-func (config Config) GetUserWithUsername(username string) User {
-	for _, user := range config.Users {
+func (config Config) GetUserWithUsername(username string) (User, int) {
+	for index, user := range config.Users {
 		if user.Username == username {
-			return user
+			return user, index
 		}
 	}
 
-	return User{}
+	return User{}, 0
 }

@@ -54,7 +54,7 @@ func handleUserInfoGet(c *gin.Context) {
 		return
 	}
 
-	user := config.GetUserWithUsername(username.(string))
+	user, _ := config.GetUserWithUsername(username.(string))
 
 	// user 必然存在 由中间件检查
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "success", "data": gin.H{
@@ -176,5 +176,53 @@ func handleRegisterGet(c *gin.Context) {
 		"code":    200,
 		"message": "success",
 		"data":    utils.Registered,
+	})
+}
+
+func handleUserInfoPut(c *gin.Context) {
+	type ReqForm struct {
+		Username string `json:"username"`
+		Nickname string `json:"nickname"`
+		Avatar   string `json:"avatar"`
+	}
+
+	var reqForm ReqForm
+
+	if err := c.ShouldBindJSON(&reqForm); err != nil {
+		// 如果绑定失败，返回 400 错误
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if reqForm.Username == "" {
+		utils.RespondWithError(c, 425)
+		return
+	}
+
+	config, err := utils.ReadConfig()
+	if err != nil {
+		utils.Logger.Error("读取配置文件失败", "err", err)
+		utils.RespondWithError(c, 500)
+		return
+	}
+
+	user, userIndex := config.GetUserWithUsername(reqForm.Username)
+
+	user.Nickname = reqForm.Nickname
+	user.Avatar = reqForm.Avatar
+
+	config.Users[userIndex] = user
+
+	err = utils.WriteConfig(config)
+	if err != nil {
+		utils.Logger.Error("写入配置文件失败", "err", err)
+		utils.RespondWithError(c, 500)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "更新成功",
+		"data":    nil,
 	})
 }

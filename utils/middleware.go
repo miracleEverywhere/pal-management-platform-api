@@ -63,7 +63,7 @@ func MWUserCheck() gin.HandlerFunc {
 					return
 				}
 
-				user := config.GetUserWithUsername(usernameStr)
+				user, _ := config.GetUserWithUsername(usernameStr)
 				if len(user.Username) != 0 {
 					if !user.Disabled {
 						c.Next()
